@@ -19,7 +19,7 @@ class QueueMonitorController extends Controller
 
     public function show(QueueMonitor $queueMonitor)
     {
-      
+    //  dd($queueMonitor);
         return view('queue-monitor.show', compact('queueMonitor'));
     }
 

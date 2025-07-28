@@ -211,9 +211,9 @@
     <!-- Action Buttons -->
     <div class="flex justify-between items-center bg-white rounded-lg shadow p-4">
         <div class="flex space-x-3">
-            <button onclick="refreshJobDetails()" class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded transition-colors">
+            {{-- <button onclick="refreshJobDetails()" class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-700 text-white font-bold rounded transition-colors">
                 <i class="fas fa-sync-alt mr-2"></i>Refresh
-            </button>
+            </button> --}}
             
             @if($queueMonitor->status === 'failed')
             <form method="POST" action="{{ route('queue-monitor.dispatch') }}" class="inline">
@@ -359,9 +359,9 @@ document.addEventListener('DOMContentLoaded', function() {
         return colors[status] || 'bg-gray-500';
     }
 
-    function refreshJobDetails() {
-        location.reload();
-    }
+    // function refreshJobDetails() {
+    //     location.reload();
+    // }
 
     function showNotification(message, type = 'info') {
         const notification = document.createElement('div');
