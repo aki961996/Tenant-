@@ -9,119 +9,94 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Events\JobStatusUpdated;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ProcessDataJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $timeout = 300;
+
+     public $timeout = 300;
     public $tries = 3;
-    public $maxExceptions = 3;
 
     protected $data;
     protected $monitor;
-
-    public function __construct($data = [])
+    /**
+     * Create a new job instance.
+     */
+       public function __construct($data = [])
     {
         $this->data = $data;
         $this->onQueue('default');
     }
 
+
+    /**
+     * Execute the job.
+     */
     public function handle(): void
     {
-        try {
-            $this->initializeMonitor();
-            
-            for ($i = 1; $i <= 10; $i++) {
-                $this->processStep($i);
-                
-                $progress = ($i / 10) * 100;
-                $this->updateProgress($progress);
-                
-                sleep(2); 
-            }
-
-            $this->completeJob();
-            
-        } catch (\Throwable $e) {
-            $this->fail($e);
-        }
-    }
-
-    protected function initializeMonitor(): void
-    {
-        $this->monitor = QueueMonitor::create([
+       $this->monitor = QueueMonitor::create([
             'job_id' => $this->job->getJobId(),
-            'name' => static::class, 
+            'name' => 'ProcessDataJob',
             'queue' => $this->queue,
             'started_at' => now(),
             'attempt' => $this->attempts(),
             'data' => $this->data,
-            'status' => 'processing',
-            'progress' => 0
+            'status' => 'processing'
         ]);
 
-        $this->broadcastUpdate();
+        broadcast(new JobStatusUpdated($this->monitor));
+
+       
+        for ($i = 1; $i <= 10; $i++) {
+            sleep(2); // Simulate work
+            
+            $progress = ($i / 10) * 100;
+            $this->updateProgress($progress);
+            
+            // Simulate some processing logic
+            $this->processStep($i);
+        }
+
+        $this->completeJob();
     }
 
-    protected function updateProgress(float $progress): void
+     protected function updateProgress($progress)
     {
         $this->monitor->update([
             'progress' => $progress,
-            'status' => $progress >= 100 ? 'completed' : 'processing',
-            'duration' => $this->calculateDuration()
+            'status' => $progress == 100 ? 'completed' : 'processing'
         ]);
 
-        $this->broadcastUpdate();
+        broadcast(new JobStatusUpdated($this->monitor));
     }
-
-    protected function processStep(int $step): void
+     protected function processStep($step)
     {
-        // Actual processing logic here
-        Log::info("Processing step {$step} for job {$this->monitor->job_id}");
+       
+        logger("Processing step {$step} for job {$this->monitor->job_id}");
     }
-
-    protected function completeJob(): void
+     protected function completeJob()
     {
         $this->monitor->update([
             'finished_at' => now(),
             'progress' => 100,
-            'status' => 'completed',
-            'duration' => $this->calculateDuration()
+            'status' => 'completed'
         ]);
 
-        $this->broadcastUpdate();
+        broadcast(new JobStatusUpdated($this->monitor));
     }
 
-    protected function calculateDuration(): float
-    {
-        return $this->monitor->started_at
-            ? now()->diffInSeconds($this->monitor->started_at)
-            : 0;
-    }
-
-    protected function broadcastUpdate(): void
-    {
-        event(new JobStatusUpdated($this->monitor->fresh()));
-    }
-
-    public function failed(\Throwable $exception): void
+      public function failed(\Throwable $exception)
     {
         if ($this->monitor) {
             $this->monitor->update([
                 'failed_at' => now(),
                 'exception' => $exception->getMessage(),
-                'status' => 'failed',
-                'duration' => $this->calculateDuration()
+                'status' => 'failed'
             ]);
 
-            $this->broadcastUpdate();
+            broadcast(new JobStatusUpdated($this->monitor));
         }
-        
-        Log::error("Job failed: " . $exception->getMessage(), [
-            'job_id' => $this->monitor?->job_id,
-            'exception' => $exception
-        ]);
     }
 }
